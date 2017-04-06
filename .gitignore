@@ -1,0 +1,10 @@
+
+\.idea/
+
+CMakeLists\.txt
+
+chat-klient
+
+chat-klient\.o
+
+cmake-build-debug/
