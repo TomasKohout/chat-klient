@@ -1,5 +1,5 @@
 //
-// Created by tom on 6.4.17.
+// Created by Tomáš Kohout (xkohou08) on 6.4.17.
 //
 
 #include <iostream>
@@ -12,11 +12,6 @@
 #include <arpa/inet.h> //inet_addr
 #include <netdb.h>
 #include <unistd.h>
-#include <netinet/in.h>
-#include <time.h>
-#include <cstdio>
-#include <cstdlib>
-#include <sstream>
 #include <signal.h>
 #include <pthread.h>
 
@@ -44,15 +39,10 @@ void sigHandler(int sig){
     send(data->sock, msg.c_str(), msg.size(), 0);
     close(data->sock);
     delete data;
-    pthread_cancel(threads[0]);
-    pthread_cancel(threads[1]);
-    exit(0);
+    exit(OK);
 }
 
 void errHandler(const char *msg){
-    pthread_cancel(threads[0]);
-    pthread_cancel(threads[1]);
-
     delete data;
     perror(msg);
     exit(ERR);
@@ -60,7 +50,6 @@ void errHandler(const char *msg){
 
 
 arg * getParams(int argc,char ** argv){
-    cout << argc << endl;
     string iArg = "-i";
     string uArg = "-u";
     if (argc != 5)
@@ -83,7 +72,7 @@ arg * getParams(int argc,char ** argv){
     return args;
 }
 
-//function for writting to stdout
+//funkce na zápis do stdout
 void *writeItAll(void *sockfd){
     char buffer[1024];
     bzero(buffer, 1024);
@@ -94,7 +83,8 @@ void *writeItAll(void *sockfd){
         n = (int) recv(data->sock, buffer, 1024, 0);
         if (n > 0)
            rcv += string(buffer, (unsigned ) n);
-
+        else
+            continue;
         cout << rcv;
         rcv.clear();
     }
@@ -103,7 +93,7 @@ void *writeItAll(void *sockfd){
 }
 
 
-//function for reading stdin and sending msgs
+//funkce na čtení ze stdin
 void * getEmAll(void *sockfd) {
     string msg;
     string sendMsg;
@@ -124,7 +114,6 @@ void * getEmAll(void *sockfd) {
 
 int main(int argc , char *argv[])
 {
-
     struct sigaction sigHand;
     sigHand.sa_handler = sigHandler;
     sigemptyset(&sigHand.sa_mask);
@@ -132,6 +121,7 @@ int main(int argc , char *argv[])
 
     sigaction(SIGINT, &sigHand, NULL);
     int pC;
+
     arg *str = getParams(argc, argv);
     string uName = str->uName;
     int sockfd, portno, n;
@@ -154,6 +144,7 @@ int main(int argc , char *argv[])
         delete str;
         errHandler("Něco se pokazilo s IP adresou. Je zadaná správně?");
     }
+    //uvolnění struktury pro parametry, dále již není potřeba.
     delete str;
 
     bzero((char *) &serv_addr, sizeof(serv_addr));
@@ -175,16 +166,12 @@ int main(int argc , char *argv[])
 
     send(sockfd, welcome.c_str(), welcome.size(), 0);
 
-    for (int i = 0; i < 2; i++){
-        if (i)
-            pC = pthread_create(&threads[i], NULL,getEmAll, (void *) &sockfd);
-        else
-            pC = pthread_create(&threads[i], NULL, writeItAll, (void *)&sockfd);
-        if (pC){
-            errHandler("Nevytvořilo se vlákno.");
-        }
+    pC = pthread_create(&threads[0], NULL,getEmAll, (void *) &sockfd);
+
+    if (pC){
+        errHandler("Nevytvořilo se vlákno.");
     }
 
-    while (42)
-        sleep(1);
+    writeItAll((void *)&sockfd);
+
 }
